@@ -2,6 +2,10 @@ import praw
 import config
 import collections
 import time
+import pyrebase
+import json
+
+firebase = pyrebase.initialize_app(config.firebase_config)
 
 users = dict()
 upvotes = dict()
@@ -26,6 +30,8 @@ def collectComments(reddit):
     Collects all comments within a certain time frame.
     Note: reddit caps comment collection at 1000, so we will need to run this at intervals depending on how busy the subreddit is
     """
+    db = firebase.database()
+
     total = 0
     #print("THE TIME IS " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     for comment in reddit.subreddit('uwaterloo').comments(limit=None):
@@ -43,10 +49,29 @@ def collectComments(reddit):
         total += 1
         if(str(comment.author) in users): 
             users[str(comment.author)] += 1
-            upvotes[str(comment.author)] += comment.ups
+            upvotes[str(comment.author)] += comment.score
         else:
             users[str(comment.author)] = 1
-            upvotes[str(comment.author)] = comment.ups
+            upvotes[str(comment.author)] = comment.score
+        data = {
+            "link_url": str(comment.link_url),
+            "edited": str(comment.edited),
+            "link_id": str(comment.link_id),
+            "link_author": str(comment.link_author),
+            "gilded": str(comment.gilded),
+            "author": str(comment.author),
+            "num_comments": str(comment.num_comments),
+            "body": str(comment.body),
+            "score": str(comment.score),
+            "ups": str(comment.ups),
+            "downs": str(comment.downs),
+            "link_title": str(comment.link_title),
+            "is_submitter": str(comment.is_submitter),
+            "name": str(comment.name),
+            "permalink": str(comment.permalink),
+            "created_utc": str(comment.created_utc)
+        }
+        db.child("comments").push(data)
 
     for key in users:
         ratio[key] = upvotes[key]/users[key]
@@ -56,6 +81,7 @@ def collectComments(reddit):
     #print(collections.Counter(upvotes).most_common(10)) #top ten most upvotes
     #print(collections.Counter(ratio).most_common(10)) #top ten best averages per post
     #print(collections.Counter(ratio).most_common()[-10:]) #bottom ten average per post
+
 
 def replyToThread(reddit):
     """
