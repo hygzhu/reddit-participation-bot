@@ -29,17 +29,17 @@ def collectComments(reddit):
     index = 1
     ignored_count = 0
     added_count = 0
-    print("THE TIME IS " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+    print("THE TIME IS " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
     
-    #print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(comment.created_utc)))
+    #print(time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(comment.created_utc)))
     #Fetch data for comments in the current day
-    print("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.localtime()))
+    print("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime()))
     daily_comments = dict()
 
     all_comments = reddit.subreddit('uwaterloo').comments(limit=None)
     for comment in all_comments:
         #print(comment.body)
-        time_posted = time.localtime(comment.created_utc)
+        time_posted = time.gmtime(comment.created_utc)
         date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
 
         data = {
@@ -68,7 +68,7 @@ def collectComments(reddit):
                 db.child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).push(data)
                 added_count += 1
         else:
-            daily_comments[date] = db.child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.localtime(comment.created_utc))).get().val()
+            daily_comments[date] = db.child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime(comment.created_utc))).get().val()
             print("Getting all comments for {}".format(date))
 
 
@@ -93,9 +93,9 @@ def getStats(reddit):
 
     total = 0
     db = firebase.database()
-    daily_comments = db.child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.localtime())).get().val().values()
+    daily_comments = db.child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime())).get().val().values()
     for comment in daily_comments:
-        time_posted = time.localtime(int(float(comment['created_utc'])))
+        time_posted = time.gmtime(int(float(comment['created_utc'])))
         date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
 
         total += 1
