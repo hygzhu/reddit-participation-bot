@@ -7,13 +7,6 @@ import json
 
 firebase = pyrebase.initialize_app(config.firebase_config)
 
-users = dict()
-upvotes = dict()
-ratio = dict()
-
-daily_posts = dict()
-
-
 def bot_login():
     """
     Allows the bot to login
@@ -29,11 +22,11 @@ def bot_login():
 def collectComments(reddit):
     """
     Collects all comments within a certain time frame.
+    Should be ran at least once every 12 hours to collect all comment data.
     Note: reddit caps comment collection at 1000, so we will need to run this at intervals depending on how busy the subreddit is
     """
     db = firebase.database()
     index = 1
-    total = 0
     ignored_count = 0
     added_count = 0
     print("THE TIME IS " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
@@ -45,22 +38,10 @@ def collectComments(reddit):
 
     all_comments = reddit.subreddit('uwaterloo').comments(limit=None)
     for comment in all_comments:
-        #adds the post to a dict
         #print(comment.body)
         time_posted = time.localtime(comment.created_utc)
         date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
-        if(date in daily_posts):
-            daily_posts[date] += 1
-        else:
-            daily_posts[date] = 1
 
-        total += 1
-        if(str(comment.author) in users): 
-            users[str(comment.author)] += 1
-            upvotes[str(comment.author)] += comment.score
-        else:
-            users[str(comment.author)] = 1
-            upvotes[str(comment.author)] = comment.score
         data = {
             "link_url": str(comment.link_url),
             "edited": str(comment.edited),
@@ -95,14 +76,48 @@ def collectComments(reddit):
         #print("Added Comment {}".format(index))
         index +=1
 
+        
+    print("Added {} and ignored {}".format(added_count, ignored_count))
+
+    
+
+def getStats(reddit):
+    """
+    Fetches comment data for the past day from firebase
+    """
+    print("Getting stats from DB")
+    users = dict()
+    upvotes = dict()
+    ratio = dict()
+    daily_posts = dict()
+
+    total = 0
+    db = firebase.database()
+    daily_comments = db.child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.localtime())).get().val().values()
+    for comment in daily_comments:
+        time_posted = time.localtime(int(float(comment['created_utc'])))
+        date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
+
+        total += 1
+
+        if(date in daily_posts):
+            daily_posts[date] += 1
+        else:
+            daily_posts[date] = 1
+
+        if(str(comment['author']) in users): 
+            users[str(comment['author'])] += 1
+            upvotes[str(comment['author'])] += int(comment['score'])
+        else:
+            users[str(comment['author'])] = 1
+            upvotes[str(comment['author'])] = int(comment['score'])
+
     for key in users:
         ratio[key] = upvotes[key]/users[key]
-    print(daily_posts)
-    print("Added {} and ignored {}".format(added_count, ignored_count))
-    #print(collections.Counter(users).most_common(10)) #top 10 most commented
-    #print(collections.Counter(upvotes).most_common(10)) #top ten most upvotes
-    #print(collections.Counter(ratio).most_common(10)) #top ten best averages per post
-    #print(collections.Counter(ratio).most_common()[-10:]) #bottom ten average per post
+    print(collections.Counter(users).most_common(10)) #top 10 most commented
+    print(collections.Counter(upvotes).most_common(10)) #top ten most upvotes
+    print(collections.Counter(ratio).most_common(10)) #top ten best averages per post
+    print(collections.Counter(ratio).most_common()[-10:]) #bottom ten average per post
 
 
 def replyToThread(reddit):
@@ -117,11 +132,11 @@ def replyToThread(reddit):
             submission.reply(replyText)
 
 
-
 def main():
     reddit = bot_login()
     collectComments(reddit)
     #replyToThread(reddit)
+    #getStats(reddit)
 
 if __name__ == "__main__":
     main()
