@@ -13,6 +13,7 @@ ratio = dict()
 
 daily_posts = dict()
 
+
 def bot_login():
     """
     Allows the bot to login
@@ -31,14 +32,21 @@ def collectComments(reddit):
     Note: reddit caps comment collection at 1000, so we will need to run this at intervals depending on how busy the subreddit is
     """
     db = firebase.database()
-
+    index = 1
     total = 0
-    #print("THE TIME IS " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-    for comment in reddit.subreddit('uwaterloo').comments(limit=None):
+    ignored_count = 0
+    added_count = 0
+    print("THE TIME IS " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+    
+    #print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(comment.created_utc)))
+    #Fetch data for comments in the current day
+    print("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.localtime()))
+    daily_comments = dict()
+
+    all_comments = reddit.subreddit('uwaterloo').comments(limit=None)
+    for comment in all_comments:
         #adds the post to a dict
         #print(comment.body)
-        #print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(comment.created_utc)))
-
         time_posted = time.localtime(comment.created_utc)
         date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
         if(date in daily_posts):
@@ -56,27 +64,41 @@ def collectComments(reddit):
         data = {
             "link_url": str(comment.link_url),
             "edited": str(comment.edited),
-            "link_id": str(comment.link_id),
-            "link_author": str(comment.link_author),
             "gilded": str(comment.gilded),
             "author": str(comment.author),
-            "num_comments": str(comment.num_comments),
             "body": str(comment.body),
             "score": str(comment.score),
             "ups": str(comment.ups),
             "downs": str(comment.downs),
-            "link_title": str(comment.link_title),
             "is_submitter": str(comment.is_submitter),
-            "name": str(comment.name),
             "permalink": str(comment.permalink),
-            "created_utc": str(comment.created_utc)
+            "created_utc": str(comment.created_utc),
+            "id": str(comment.id)
         }
-        db.child("comments").push(data)
+
+        #Check if the comment was already added in, else fetch total comments for the day
+        print(date)
+        if(date in daily_comments):
+            if(daily_comments[date] != None and any(x["permalink"] == str(comment.permalink) for x in daily_comments[date].values())):
+                print("Comment {} already exists in DB".format(index))
+                ignored_count += 1
+            else:
+                print("Adding comment {} to DB".format(index))
+                db.child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).push(data)
+                added_count += 1
+        else:
+            daily_comments[date] = db.child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.localtime(comment.created_utc))).get().val()
+            print("Getting all comments for {}".format(date))
+
+
+        #db.child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).push(data)
+        #print("Added Comment {}".format(index))
+        index +=1
 
     for key in users:
         ratio[key] = upvotes[key]/users[key]
     print(daily_posts)
-
+    print("Added {} and ignored {}".format(added_count, ignored_count))
     #print(collections.Counter(users).most_common(10)) #top 10 most commented
     #print(collections.Counter(upvotes).most_common(10)) #top ten most upvotes
     #print(collections.Counter(ratio).most_common(10)) #top ten best averages per post
@@ -93,9 +115,6 @@ def replyToThread(reddit):
             print("Created at {}".format(submission.created))
             replyText = "Found a free talk friday"
             submission.reply(replyText)
-
-
-    
 
 
 
