@@ -2,6 +2,7 @@ import praw
 import config
 import collections
 import time
+import datetime
 import pyrebase
 import json
 
@@ -88,7 +89,7 @@ def collectComments(reddit):
 
 def getStats(reddit):
     """
-    Fetches comment data for the past day from firebase
+    Fetches comment data for the past 7 days starting the day prior
     """
     print("Getting stats from DB")
     users = dict()
@@ -98,41 +99,54 @@ def getStats(reddit):
 
     total_comments = 0
     db = firebase.database()
-    date = "{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime())
-    daily_comments = db.child("comments").child(date).get().val().values()
-    for comment in daily_comments:
-        total_comments += 1
-        time_posted = time.gmtime(int(float(comment['created_utc'])))
-        date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
+    dt = datetime.datetime.fromtimestamp(time.mktime(time.gmtime()))
+    date = "{}-{}-{}".format(dt.month, dt.day, dt.year)
+    #print(date)
+    for i in range(1,8):
+        new_dt = dt - datetime.timedelta(days=i)
+        print("{}-{}-{}".format(new_dt.month, new_dt.day, new_dt.year))
+        new_dt = "{}-{}-{}".format(new_dt.month, new_dt.day, new_dt.year)
+        #fetch daily comments
+        daily_comments = db.child("comments").child(new_dt).get().val()
+        if daily_comments == None: 
+            print("No Comments for {}".format(new_dt))
+            continue
+        daily_comments = daily_comments.values()
+        for comment in daily_comments:
+            total_comments += 1
+            time_posted = time.gmtime(int(float(comment['created_utc'])))
+            date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
 
-        if(date in daily_posts):
-            daily_posts[date] += 1
-        else:
-            daily_posts[date] = 1
+            if(date in daily_posts):
+                daily_posts[date] += 1
+            else:
+                daily_posts[date] = 1
 
-        if(str(comment['author']) in users): 
-            users[str(comment['author'])] += 1
-            upvotes[str(comment['author'])] += int(comment['score'])
-        else:
-            users[str(comment['author'])] = 1
-            upvotes[str(comment['author'])] = int(comment['score'])
+            if(str(comment['author']) in users): 
+                users[str(comment['author'])] += 1
+                upvotes[str(comment['author'])] += int(comment['score'])
+            else:
+                users[str(comment['author'])] = 1
+                upvotes[str(comment['author'])] = int(comment['score'])
 
-    for key in users:
-        ratio[key] = upvotes[key]/users[key]
-    
-    print("Comment Stats for {}".format(date))
-    print("-----------Top 5 most commented-----------")
-    for x in collections.Counter(users).most_common(5):
-        print("{}, {} comments".format(x[0], x[1]))
-    print("-----------Top 5 most culmulative upvotes-----------")
-    for x in collections.Counter(upvotes).most_common(5):
-        print("{}, {} Upvotes".format(x[0], x[1]))
-    print("-----------Top 5 highest average score-----------")
-    for x in collections.Counter(ratio).most_common(5):
-        print("{}, {} Average score in {} comments".format(x[0], x[1], users[x[0]]))
-    print("-----------Top 5 lowest average score-----------")
-    for x in collections.Counter(ratio).most_common()[-5:]:
-        print("{}, {} Average score in {} comments".format(x[0], x[1], users[x[0]]))
+        for key in users:
+            ratio[key] = upvotes[key]/users[key]
+        """
+        print("Comment Stats for {}".format(new_dt))
+        print("-----------Top 5 most commented-----------")
+        for x in collections.Counter(users).most_common(5):
+            print("{}, {} comments".format(x[0], x[1]))
+        print("-----------Top 5 most culmulative upvotes-----------")
+        for x in collections.Counter(upvotes).most_common(5):
+            print("{}, {} Upvotes".format(x[0], x[1]))
+        print("-----------Top 5 highest average score-----------")
+        for x in collections.Counter(ratio).most_common(5):
+            print("{}, {} Average score in {} comments".format(x[0], x[1], users[x[0]]))
+        print("-----------Top 5 lowest average score-----------")
+        for x in collections.Counter(ratio).most_common()[-5:]:
+            print("{}, {} Average score in {} comments".format(x[0], x[1], users[x[0]]))
+        """
+    return "Comment str"
 
 
 def replyToThread(reddit):
@@ -143,8 +157,9 @@ def replyToThread(reddit):
     for submission in subreddit.stream.submissions():
         if(submission.title == "Free Talk Friday"):
             print("Created at {}".format(submission.created))
-            replyText = "Found a free talk friday"
+            replyText = getStats(reddit)
             submission.reply(replyText)
+            return
 
 
 def main():
