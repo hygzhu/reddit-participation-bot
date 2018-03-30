@@ -29,11 +29,12 @@ def collectComments(reddit):
     index = 1
     ignored_count = 0
     added_count = 0
-    print("THE TIME IS " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+    updated_count = 0
+    print("RUNNING COLLECT COMMENTS AT TIME " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
     
     #print(time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(comment.created_utc)))
     #Fetch data for comments in the current day
-    print("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime()))
+    #print("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime()))
     daily_comments = dict()
 
     all_comments = reddit.subreddit('uwaterloo').comments(limit=None)
@@ -58,28 +59,32 @@ def collectComments(reddit):
         }
 
         #Check if the comment was already added in, else fetch total comments for the day
-        print(date)
+        #print(date)
         if(date in daily_comments):
-            if(daily_comments[date] != None and any(x["permalink"] == str(comment.permalink) for x in daily_comments[date].values())):
-                print("Comment {} already exists in DB".format(index))
+            if(daily_comments[date] != None and any((x["permalink"] == str(comment.permalink) and (x["score"] == str(comment.score))) for x in daily_comments[date].values())):
+                #print("Comment {} : {} already exists in DB and does not need to be updated".format(index,str(comment.id)))
                 ignored_count += 1
             else:
-                print("Adding comment {} to DB".format(index))
-                db.child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).push(data)
-                added_count += 1
+                if(daily_comments[date] != None and any(x["score"] != str(comment.score) for x in daily_comments[date].values())):
+                    #print("Updating score for comment {} : {}".format(index,str(comment.id)))
+                    db.child("comments").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(comment.name)).update(data)
+                    updated_count += 1
+                else:
+                    #print("Adding comment {} : {}".format(index,str(comment.id)))
+                    db.child("comments").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(comment.name)).set(data)
+                    added_count += 1
         else:
-            daily_comments[date] = db.child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime(comment.created_utc))).get().val()
-            print("Getting all comments for {}".format(date))
+            daily_comments[date] = db.child("comments").child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime(comment.created_utc))).get().val()
+            #print("Getting all comments for {}".format(date))
 
 
         #db.child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).push(data)
         #print("Added Comment {}".format(index))
         index +=1
 
-        
-    print("Added {} and ignored {}".format(added_count, ignored_count))
+    print("Added {}, Ignored {}, Updated {}".format(added_count, ignored_count, updated_count))
+    print("COMPLETED COLLECT COMMENTS AT TIME " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
 
-    
 
 def getStats(reddit):
     """
@@ -91,14 +96,14 @@ def getStats(reddit):
     ratio = dict()
     daily_posts = dict()
 
-    total = 0
+    total_comments = 0
     db = firebase.database()
-    daily_comments = db.child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime())).get().val().values()
+    date = "{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime())
+    daily_comments = db.child("comments").child(date).get().val().values()
     for comment in daily_comments:
+        total_comments += 1
         time_posted = time.gmtime(int(float(comment['created_utc'])))
         date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
-
-        total += 1
 
         if(date in daily_posts):
             daily_posts[date] += 1
@@ -114,10 +119,20 @@ def getStats(reddit):
 
     for key in users:
         ratio[key] = upvotes[key]/users[key]
-    print(collections.Counter(users).most_common(10)) #top 10 most commented
-    print(collections.Counter(upvotes).most_common(10)) #top ten most upvotes
-    print(collections.Counter(ratio).most_common(10)) #top ten best averages per post
-    print(collections.Counter(ratio).most_common()[-10:]) #bottom ten average per post
+    
+    print("Comment Stats for {}".format(date))
+    print("-----------Top 5 most commented-----------")
+    for x in collections.Counter(users).most_common(5):
+        print("{}, {} comments".format(x[0], x[1]))
+    print("-----------Top 5 most culmulative upvotes-----------")
+    for x in collections.Counter(upvotes).most_common(5):
+        print("{}, {} Upvotes".format(x[0], x[1]))
+    print("-----------Top 5 highest average score-----------")
+    for x in collections.Counter(ratio).most_common(5):
+        print("{}, {} Average score in {} comments".format(x[0], x[1], users[x[0]]))
+    print("-----------Top 5 lowest average score-----------")
+    for x in collections.Counter(ratio).most_common()[-5:]:
+        print("{}, {} Average score in {} comments".format(x[0], x[1], users[x[0]]))
 
 
 def replyToThread(reddit):
@@ -134,9 +149,9 @@ def replyToThread(reddit):
 
 def main():
     reddit = bot_login()
-    collectComments(reddit)
+    #collectComments(reddit)
     #replyToThread(reddit)
-    #getStats(reddit)
+    getStats(reddit)
 
 if __name__ == "__main__":
     main()
