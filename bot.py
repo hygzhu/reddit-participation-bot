@@ -5,6 +5,7 @@ import time
 import datetime
 import pyrebase
 import json
+import strings
 
 firebase = pyrebase.initialize_app(config.firebase_config)
 
@@ -146,7 +147,16 @@ def getStats(reddit):
         for x in collections.Counter(ratio).most_common()[-5:]:
             print("{}, {} Average score in {} comments".format(x[0], x[1], users[x[0]]))
         """
-    return "Comment str"
+    #Params: 
+    # subreddit, start day, end day, 
+    # 5 (user, value) most comments, most karma ,Highest Average karma, Lowest Average Karma
+    # Contact, source code
+    return strings.post.format(sub = "uwaterloo", 
+    start = "{new_dt.month}-{new_dt.day}-{new_dt.year}".format(new_dt = dt - datetime.timedelta(days=8)), 
+    end = "{new_dt.month}-{new_dt.day}-{new_dt.year}".format(new_dt = dt - datetime.timedelta(days=1)), 
+    a1 = collections.Counter(users).most_common(5), a2 = collections.Counter(upvotes).most_common(5),
+    a3 = collections.Counter(ratio).most_common(5), a4 = collections.Counter(ratio).most_common()[-5:],
+    contact ="https://www.reddit.com/message/compose/?to=user-activity", source= "https://github.com/hygzhu/reddit-participation-bot")
 
 
 def replyToThread(reddit):
@@ -154,6 +164,7 @@ def replyToThread(reddit):
     Replies to the thread of the week with statistics
     """
     subreddit = reddit.subreddit('uwaterloobots')
+    #Takes newest submissions first
     for submission in subreddit.stream.submissions():
         if(submission.title == "Free Talk Friday"):
             print("Created at {}".format(submission.created))
@@ -165,8 +176,8 @@ def replyToThread(reddit):
 def main():
     reddit = bot_login()
     #collectComments(reddit)
-    #replyToThread(reddit)
-    getStats(reddit)
+    replyToThread(reddit)
+    #getStats(reddit)
 
 if __name__ == "__main__":
     main()
