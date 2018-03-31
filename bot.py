@@ -60,8 +60,7 @@ def collectComments(reddit):
             "id": str(comment.id)
         }
 
-        #Check if the comment was already added in, else fetch total comments for the day
-        #print(date)
+        #Updates comment data if it does not exist or if the score changed in past 
         if(date in daily_comments):
             if(daily_comments[date] != None and any((x["permalink"] == str(comment.permalink) and (x["score"] == str(comment.score))) for x in daily_comments[date].values())):
                 #print("Comment {} : {} already exists in DB and does not need to be updated".format(index,str(comment.id)))
@@ -87,17 +86,53 @@ def collectComments(reddit):
     print("Added {}, Ignored {}, Updated {}".format(added_count, ignored_count, updated_count))
     print("COMPLETED COLLECT COMMENTS AT TIME " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
 
-
 def collectSubmissions(reddit):
     """
     Collect data for as many submissions as possible
     Collects up to 1000 past submissions
     Should be ran at least once every day
     """
+    db = firebase.database()
+    daily_submissions= dict()
+    
+    ignored_count = 0
+    added_count = 0
+    updated_count = 0
+
     count = 0
+    print("RUNNING COLLECT SUBMISSIONS AT TIME " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
     for submission in reddit.subreddit('uwaterloo').new(limit=None):
         count += 1
-        print(submission.__dict__)
+        time_posted = time.gmtime(submission.created_utc)
+        date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
+
+        data = {
+            "subreddit": str(submission.subreddit),
+            "author": str(submission.author),
+            "score": str(submission.score),
+            "gilded": str(submission.gilded),
+            "permalink": str(submission.permalink),
+            "created_utc": str(submission.created_utc),
+            "num_comments": str(submission.num_comments),
+            "title": str(submission.title),
+            "self_text": str(submission.selftext),
+            "id": str(submission.id)
+        }
+        #Updates submissioon data if it does not exist or if the score changed in past 
+        if(date in daily_submissions):
+            if(daily_submissions[date] != None and any((x["permalink"] == str(submission.permalink) and (x["score"] == str(submission.score))) for x in daily_submissions[date].values())):
+                ignored_count += 1
+            else:
+                if(daily_submissions[date] != None and any(x["score"] != str(submission.score) for x in daily_submissions[date].values())):
+                    db.child("submissions").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(submission.name)).update(data)
+                    updated_count += 1
+                else:
+                    db.child("submissions").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(submission.name)).set(data)
+                    added_count += 1
+        else:
+            daily_submissions[date] = db.child("submissions").child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime(submission.created_utc))).get().val()
+    print("Added {}, Ignored {}, Updated {}".format(added_count, ignored_count, updated_count))
+    print("COMPLETED COLLECT SUBMISSIONS AT TIME " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
     return
     
 
