@@ -23,8 +23,8 @@ def bot_login():
 
 def collectComments(reddit):
     """
-    Collects all comments within a certain time frame.
-    Should be ran at least once every 12 hours to collect all comment data.
+    Collect data for as many comments as possible
+    Should be ran at least once every hour to collect all comment data.
     Note: reddit caps comment collection at 1000, so we will need to run this at intervals depending on how busy the subreddit is
     """
     db = firebase.database()
@@ -88,20 +88,32 @@ def collectComments(reddit):
     print("COMPLETED COLLECT COMMENTS AT TIME " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
 
 
+def collectSubmissions(reddit):
+    """
+    Collect data for as many submissions as possible
+    Collects up to 1000 past submissions
+    Should be ran at least once every day
+    """
+    count = 0
+    for submission in reddit.subreddit('uwaterloo').new(limit=None):
+        count += 1
+        print(submission.__dict__)
+    return
+    
+
 def getStats(reddit):
     """
     Fetches comment data for the past 7 days starting the day prior
     """
     print("Getting stats from DB")
-    users = dict()
-    upvotes = dict()
-    ratio = dict()
-    daily_posts = dict()
+    user_comment_count = dict()
+    user_total_karma = dict()
+    user_comment_ratio = dict()
 
     total_comments = 0
+
     db = firebase.database()
     dt = datetime.datetime.fromtimestamp(time.mktime(time.gmtime()))
-    date = "{}-{}-{}".format(dt.month, dt.day, dt.year)
     #print(date)
     for i in range(1,8):
         new_dt = dt - datetime.timedelta(days=i)
@@ -115,48 +127,27 @@ def getStats(reddit):
         daily_comments = daily_comments.values()
         for comment in daily_comments:
             total_comments += 1
-            time_posted = time.gmtime(int(float(comment['created_utc'])))
-            date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
-
-            if(date in daily_posts):
-                daily_posts[date] += 1
+            if(str(comment['author']) in user_comment_count): 
+                user_comment_count[str(comment['author'])] += 1
+                user_total_karma[str(comment['author'])] += int(comment['score'])
             else:
-                daily_posts[date] = 1
+                user_comment_count[str(comment['author'])] = 1
+                user_total_karma[str(comment['author'])] = int(comment['score'])
 
-            if(str(comment['author']) in users): 
-                users[str(comment['author'])] += 1
-                upvotes[str(comment['author'])] += int(comment['score'])
-            else:
-                users[str(comment['author'])] = 1
-                upvotes[str(comment['author'])] = int(comment['score'])
+        for key in user_comment_count:
+            user_comment_ratio[key] = user_total_karma[key]/user_comment_count[key]
 
-        for key in users:
-            ratio[key] = upvotes[key]/users[key]
-        """
-        print("Comment Stats for {}".format(new_dt))
-        print("-----------Top 5 most commented-----------")
-        for x in collections.Counter(users).most_common(5):
-            print("{}, {} comments".format(x[0], x[1]))
-        print("-----------Top 5 most culmulative upvotes-----------")
-        for x in collections.Counter(upvotes).most_common(5):
-            print("{}, {} Upvotes".format(x[0], x[1]))
-        print("-----------Top 5 highest average score-----------")
-        for x in collections.Counter(ratio).most_common(5):
-            print("{}, {} Average score in {} comments".format(x[0], x[1], users[x[0]]))
-        print("-----------Top 5 lowest average score-----------")
-        for x in collections.Counter(ratio).most_common()[-5:]:
-            print("{}, {} Average score in {} comments".format(x[0], x[1], users[x[0]]))
-        """
-    #Params: 
-    # subreddit, start day, end day, 
-    # 5 (user, value) most comments, most karma ,Highest Average karma, Lowest Average Karma
-    # Contact, source code
-    return strings.post.format(sub = "uwaterloo", 
+    return strings.UWATERLOO_FRIDAY_POST.format(
+    sub = "uwaterloo", 
     start = "{new_dt.month}-{new_dt.day}-{new_dt.year}".format(new_dt = dt - datetime.timedelta(days=8)), 
     end = "{new_dt.month}-{new_dt.day}-{new_dt.year}".format(new_dt = dt - datetime.timedelta(days=1)), 
-    a1 = collections.Counter(users).most_common(5), a2 = collections.Counter(upvotes).most_common(5),
-    a3 = collections.Counter(ratio).most_common(5), a4 = collections.Counter(ratio).most_common()[-5:],
-    contact ="https://www.reddit.com/message/compose/?to=user-activity", source= "https://github.com/hygzhu/reddit-participation-bot")
+    total_submissions = 0, total_submission_karma = 0, total_unique_submitters = 0, total_comments = total_comments, total_comment_karma= 0, total_unique_commentors = 0,
+    s_most = [(0,0)], s_karma= [(0,0)], s_highest = [(0,0)], s_lowest = [(0,0)], top_submission_user = "", top_submission_karma = 0, top_submission_link = "",
+    c_most = collections.Counter(user_comment_count).most_common(5), c_karma = collections.Counter(user_total_karma).most_common(5),
+    c_highest = collections.Counter(user_comment_ratio).most_common(5), c_lowest = collections.Counter(user_comment_ratio).most_common()[-5:][::-1],
+    top_comment_user = "", top_comment_karma = 0, top_comment_link = "", 
+    common_words = "", goose_count = "", my_dude_count = "", facebook_count = "",
+    contact ="https://www.reddit.com/message/compose/?to=user-activity", source= "https://github.com/hygzhu/reddit-participation-bot", website="")
 
 
 def replyToThread(reddit):
@@ -169,14 +160,16 @@ def replyToThread(reddit):
         if(submission.title == "Free Talk Friday"):
             print("Created at {}".format(submission.created))
             replyText = getStats(reddit)
-            submission.reply(replyText)
+            print(replyText)
+            #submission.reply(replyText)
             return
 
 
 def main():
     reddit = bot_login()
     #collectComments(reddit)
-    replyToThread(reddit)
+    collectSubmissions(reddit)
+    #replyToThread(reddit)
     #getStats(reddit)
 
 if __name__ == "__main__":
