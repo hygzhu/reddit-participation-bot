@@ -5,6 +5,7 @@ import time
 import datetime
 import pyrebase
 import json
+import re
 import strings
 
 firebase = pyrebase.initialize_app(config.firebase_config)
@@ -165,13 +166,13 @@ def getStats(reddit):
     #print(date)
     for i in range(1,8):
         new_dt = dt - datetime.timedelta(days=i)
-        print("{}-{}-{}".format(new_dt.month, new_dt.day, new_dt.year))
+        #print("{}-{}-{}".format(new_dt.month, new_dt.day, new_dt.year))
         new_dt = "{}-{}-{}".format(new_dt.month, new_dt.day, new_dt.year)
         
         #fetch daily submissions
         daily_submissions = db.child("submissions").child(new_dt).get().val()
         if daily_submissions == None: 
-            print("No Submissions for {}".format(new_dt))
+            #print("No Submissions for {}".format(new_dt))
             continue
         daily_submissions = daily_submissions.values()
         for submission in daily_submissions:
@@ -192,7 +193,7 @@ def getStats(reddit):
         #fetch daily comments
         daily_comments = db.child("comments").child(new_dt).get().val()
         if daily_comments == None: 
-            print("No Comments for {}".format(new_dt))
+            #print("No Comments for {}".format(new_dt))
             continue
         daily_comments = daily_comments.values()
         for comment in daily_comments:
@@ -232,26 +233,31 @@ def getStats(reddit):
     contact ="https://www.reddit.com/message/compose/?to=user-activity", source= "https://github.com/hygzhu/reddit-participation-bot", website="")
 
 
-def replyToThread(reddit):
+def replyToComments(reddit):
     """
-    Replies to the thread of the week with statistics
+    Replies to comments requesting statistics
     """
-    subreddit = reddit.subreddit('uwaterloobots')
-    #Takes newest submissions first
-    for submission in subreddit.stream.submissions():
-        if(submission.title == "Free Talk Friday"):
-            print("Created at {}".format(submission.created))
-            replyText = getStats(reddit)
-            #print(replyText)
-            submission.reply(replyText)
-            return
+    replyText = getStats(reddit)
 
+    #Takes newest submissions first
+    all_comments = reddit.subreddit('uwaterloobots').comments(limit=None)
+    for comment in all_comments:
+        if(re.match(r'.*<get-stats>.*',str(comment.body))):
+            print("Found a comment!")
+            #To get replies, we need to fetch the entire submission
+            comment.refresh()
+            if(any(str(reply.author) == 'user-activity' for reply in comment.replies)):
+                print('Already replied to this command')
+            else:
+                print('Replying to new command')
+                comment.reply(replyText)
+    
 
 def main():
     reddit = bot_login()
     #collectComments(reddit)
     #collectSubmissions(reddit)
-    replyToThread(reddit)
+    replyToComments(reddit)
     #getStats(reddit)
 
 
