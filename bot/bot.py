@@ -20,6 +20,7 @@ def bot_login():
                 client_id = config.client_id, 
                 client_secret = config.client_secret,
                 user_agent = "User participation bot v0.1")
+    print("Bot logged in properly")
     return reddit
 
 
@@ -252,14 +253,3 @@ def replyToComments(reddit):
                 print('Replying to new command')
                 comment.reply(replyText)
     
-
-def main():
-    reddit = bot_login()
-    #collectComments(reddit)
-    #collectSubmissions(reddit)
-    replyToComments(reddit)
-    #getStats(reddit)
-
-
-if __name__ == "__main__":
-    main()
