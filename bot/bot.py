@@ -64,23 +64,22 @@ def collectComments(reddit):
         }
 
         #Updates comment data if it does not exist or if the score changed in past 
-        if(date in daily_comments):
-            if(daily_comments[date] != None and any((x["permalink"] == str(comment.permalink) and (x["score"] == str(comment.score))) for x in daily_comments[date].values())):
-                #print("Comment {} : {} already exists in DB and does not need to be updated".format(index,str(comment.id)))
-                ignored_count += 1
-            else:
-                if(daily_comments[date] != None and any(x["score"] != str(comment.score) for x in daily_comments[date].values())):
-                    #print("Updating score for comment {} : {}".format(index,str(comment.id)))
-                    db.child("comments").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(comment.name)).update(data)
-                    updated_count += 1
-                else:
-                    #print("Adding comment {} : {}".format(index,str(comment.id)))
-                    db.child("comments").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(comment.name)).set(data)
-                    added_count += 1
-        else:
+        if(date not in daily_comments):
             daily_comments[date] = db.child("comments").child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime(comment.created_utc))).get().val()
             #print("Getting all comments for {}".format(date))
 
+        if(daily_comments[date] != None and any((x["permalink"] == str(comment.permalink) and (x["score"] == str(comment.score))) for x in daily_comments[date].values())):
+            #print("Comment {} : {} already exists in DB and does not need to be updated".format(index,str(comment.id)))
+            ignored_count += 1
+        else:
+            if(daily_comments[date] != None and any(x["permalink"] == str(comment.permalink) and x["score"] != str(comment.score) for x in daily_comments[date].values())):
+                #print("Updating score for comment {} : {}".format(index,str(comment.id)))
+                db.child("comments").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(comment.name)).update(data)
+                updated_count += 1
+            else:
+                #print("Adding comment {} : {}".format(index,str(comment.id)))
+                db.child("comments").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(comment.name)).set(data)
+                added_count += 1
 
         #db.child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).push(data)
         #print("Added Comment {}".format(index))
@@ -122,19 +121,24 @@ def collectSubmissions(reddit):
             "self_text": str(submission.selftext),
             "id": str(submission.id)
         }
+
         #Updates submissioon data if it does not exist or if the score changed in past 
-        if(date in daily_submissions):
-            if(daily_submissions[date] != None and any((x["permalink"] == str(submission.permalink) and (x["score"] == str(submission.score))) for x in daily_submissions[date].values())):
-                ignored_count += 1
-            else:
-                if(daily_submissions[date] != None and any(x["score"] != str(submission.score) for x in daily_submissions[date].values())):
-                    db.child("submissions").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(submission.name)).update(data)
-                    updated_count += 1
-                else:
-                    db.child("submissions").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(submission.name)).set(data)
-                    added_count += 1
-        else:
+        if(date not in daily_submissions):
             daily_submissions[date] = db.child("submissions").child("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime(submission.created_utc))).get().val()
+
+        if(daily_submissions[date] != None and any((x["permalink"] == str(submission.permalink) and (x["score"] == str(submission.score)) and x["num_comments"] == str(submission.num_comments)) for x in daily_submissions[date].values())):
+            ignored_count += 1
+            #print("Ignored")
+        else:
+            if(daily_submissions[date] != None and any((x["permalink"] == str(submission.permalink) and (x["score"] != str(submission.score) or x["num_comments"] != str(submission.num_comments))) for x in daily_submissions[date].values())):
+                db.child("submissions").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(submission.name)).update(data)
+                updated_count += 1
+                #print("Updated")
+            else:
+                db.child("submissions").child("{}-{}-{}".format(time_posted.tm_mon, time_posted.tm_mday, time_posted.tm_year)).child(str(submission.name)).set(data)
+                added_count += 1
+                #print("Added")
+
     print("Added {}, Ignored {}, Updated {}".format(added_count, ignored_count, updated_count))
     print("COMPLETED COLLECT SUBMISSIONS AT TIME " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
     return
