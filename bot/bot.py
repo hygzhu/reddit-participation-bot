@@ -257,3 +257,25 @@ def replyToComments(reddit):
                 print('Replying to new command')
                 comment.reply(replyText)
     
+
+def replyToSubmission(reddit):
+    """
+    Replies to submission
+    """
+    replyText = getStats(reddit)
+
+    db = firebase.database()
+
+    #Takes newest submissions first
+    for submission in reddit.subreddit("uwaterloobots").new():
+        if(submission.title == "Free Talk Friday"):
+            print("Found a thread with ID {}".format(str(submission.id)))
+            # Check in the db if we already replies to the submission
+            replied_submissions = db.child("replied_submissions").get().val()
+            if str(submission.id) in replied_submissions:
+                print("Already Replied")
+            else:
+                print("Not Replied, Replying")
+                db.child("replied_submissions").child(str(submission.id)).set(str(submission.id))
+                submission.reply(replyText)
+            return

@@ -23,8 +23,10 @@ def runAction(args):
         bot.collectComments(reddit)
     elif(args.action == 'submissions'):
         bot.collectSubmissions(reddit)
-    elif(args.action == 'reply'):
+    elif(args.action == 'replycomment'):
         bot.replyToComments(reddit)
+    elif(args.action == 'replysubmission'):
+        bot.replyToSubmission(reddit)
 
 if __name__ == "__main__":
     main()
