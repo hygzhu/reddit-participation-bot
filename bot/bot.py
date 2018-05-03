@@ -262,8 +262,6 @@ def replyToSubmission(reddit):
     """
     Replies to submission
     """
-    replyText = getStats(reddit)
-
     db = firebase.database()
 
     #Takes newest submissions first
@@ -276,6 +274,7 @@ def replyToSubmission(reddit):
                 print("Already Replied")
             else:
                 print("Not Replied, Replying")
+                replyText = getStats(reddit)
                 db.child("replied_submissions").child(str(submission.id)).set(str(submission.id))
                 submission.reply(replyText)
             return
