@@ -20,11 +20,11 @@ def bot_login():
                 client_id = config.client_id, 
                 client_secret = config.client_secret,
                 user_agent = "User participation bot v0.1")
-    print("Bot logged in properly")
+    print("Bot logged in")
     return reddit
 
 
-def collectComments(reddit):
+def collectComments(reddit, subreddit):
     """
     Collect data for as many comments as possible
     Should be ran at least once every hour to collect all comment data.
@@ -42,7 +42,7 @@ def collectComments(reddit):
     #print("{dt.tm_mon}-{dt.tm_mday}-{dt.tm_year}".format(dt = time.gmtime()))
     daily_comments = dict()
 
-    all_comments = reddit.subreddit('uwaterloo').comments(limit=None)
+    all_comments = reddit.subreddit(subreddit).comments(limit=None)
     for comment in all_comments:
         #print(comment.body)
         time_posted = time.gmtime(comment.created_utc)
@@ -89,7 +89,7 @@ def collectComments(reddit):
     print("COMPLETED COLLECT COMMENTS AT TIME " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
 
 
-def collectSubmissions(reddit):
+def collectSubmissions(reddit, subreddit):
     """
     Collect data for as many submissions as possible
     Collects up to 1000 past submissions
@@ -104,7 +104,7 @@ def collectSubmissions(reddit):
 
     count = 0
     print("RUNNING COLLECT SUBMISSIONS AT TIME " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
-    for submission in reddit.subreddit('uwaterloo').new(limit=None):
+    for submission in reddit.subreddit(subreddit).new(limit=None):
         count += 1
         time_posted = time.gmtime(submission.created_utc)
         date = (time_posted.tm_mday, time_posted.tm_mon, time_posted.tm_year)
@@ -238,34 +238,34 @@ def getStats(reddit):
     contact ="https://www.reddit.com/message/compose/?to=user-activity", source= "https://github.com/hygzhu/reddit-participation-bot", website="")
 
 
-def replyToComments(reddit):
+def replyToComments(reddit, subreddit):
     """
     Replies to comments requesting statistics
     """
     replyText = getStats(reddit)
 
     #Takes newest submissions first
-    all_comments = reddit.subreddit('uwaterloobots').comments(limit=None)
+    all_comments = reddit.subreddit(subreddit).comments(limit=None)
     for comment in all_comments:
         if(re.match(r'.*<get-stats>.*',str(comment.body))):
             print("Found a comment!")
             #To get replies, we need to fetch the entire submission
             comment.refresh()
             if(any(str(reply.author) == 'user-activity' for reply in comment.replies)):
-                print('Already replied to this command')
+                print('Already replied to this comment')
             else:
-                print('Replying to new command')
+                print('Replying to new comment')
                 comment.reply(replyText)
     
 
-def replyToSubmission(reddit):
+def replyToSubmission(reddit,subreddit):
     """
     Replies to submission
     """
     db = firebase.database()
 
     #Takes newest submissions first
-    for submission in reddit.subreddit("uwaterloobots").new():
+    for submission in reddit.subreddit(subreddit).new():
         if(submission.title == "Free Talk Friday"):
             print("Found a thread with ID {}".format(str(submission.id)))
             # Check in the db if we already replies to the submission
