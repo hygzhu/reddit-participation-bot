@@ -6,12 +6,18 @@ All data is stored on a Firebase Realtime DB which is accessed using Pyrebase.
 
 Current Usage
 ```
-# collects the past ~1000 comments and adds to the db
-python bot comments
+python bot [flags]
 
-# collects the past ~1000 submissions and adds to the db
-python bot submissions
+non-optional arguments:
+  -h, --help            show this help message and exit
+  --comments Subreddit  Collect Comments from a subreddit
+  --submissions Subreddit
+                        Collect Submissions from a subreddit
+  --replycomment Subreddit
+                        Reply to comments on a subreddit
+  --replysubmission Subreddit
+                        Reply to submissions on a subreddit
 
-# Replies to the most recent submission titled "Free Talk Friday"
-python bot reply 
 ```
+
+When collecting comments or submissions, the script will collect the most recent 1000.
