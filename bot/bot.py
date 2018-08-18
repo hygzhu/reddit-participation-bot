@@ -266,7 +266,7 @@ def replyToSubmission(reddit,subreddit):
 
     #Takes newest submissions first
     for submission in reddit.subreddit(subreddit).new():
-        if(submission.title == "Free Talk Friday"):
+        if(submission.title == "Free Talk Friday" and submission.author.name == "AutoModerator"):
             print("Found a thread with ID {}".format(str(submission.id)))
             # Check in the db if we already replies to the submission
             replied_submissions = db.child("replied_submissions").get().val()
